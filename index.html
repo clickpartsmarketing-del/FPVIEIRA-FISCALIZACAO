@@ -386,12 +386,12 @@ nav button.sel .ic{transform:translateY(-1px)}
    Arquivo único, zero dependências. Gera .xlsx no modelo oficial
    (timbre embutido) com numeração automática sequencial.
    ================================================================ */
-const VERSAO = 'v6';
+const VERSAO = 'v7';
 const LS = 'fpv_fisc_semde_v1';
 /* NUVEM (Supabase) — vazio = modo LOCAL; preenchido = central (ver supabase/DEPLOY.md) */
 const NUVEM = {
-  url: '',   // ex.: https://xxxxxxxx.supabase.co
-  anon: ''   // chave anon/public do projeto (NUNCA a service_role)
+  url: 'https://irprgdzaqoqnjuksuloh.supabase.co',
+  anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycHJnZHphcW9xbmp1a3N1bG9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTA3MTAsImV4cCI6MjEwMzg4NjcxMH0.zpl2mFwrQ-1WgBpC-ULz5eTSlFcsqiqO8cIeCHSFAi8' // anon/public — RLS protege; service_role NUNCA entra aqui
 };
 const nuvemOK = () => !!(NUVEM.url && NUVEM.anon);
 const EMAIL_DOMINIO = '@fpvfisc.app';
