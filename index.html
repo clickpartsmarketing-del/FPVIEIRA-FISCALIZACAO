@@ -386,7 +386,7 @@ nav button.sel .ic{transform:translateY(-1px)}
    Arquivo único, zero dependências. Gera .xlsx no modelo oficial
    (timbre embutido) com numeração automática sequencial.
    ================================================================ */
-const VERSAO = 'v7';
+const VERSAO = 'v8';
 const LS = 'fpv_fisc_semde_v1';
 /* NUVEM (Supabase) — vazio = modo LOCAL; preenchido = central (ver supabase/DEPLOY.md) */
 const NUVEM = {
@@ -525,8 +525,13 @@ function rowParaOs(r){
 }
 let nuvemSincronizando=false;
 let nuvemGeracao=0; // incrementa a cada escrita local confirmada — invalida snapshot em voo
+/* v8: sync automático (troca de aba) no máximo 1x por minuto — com o
+   histórico importado cada sync baixa a tabela inteira (~2MB) e isso
+   virava consumo de dados constante no 4G. O ↻ manual sempre sincroniza. */
+let nuvemUltimaSync=0;
 async function nuvemSync(silencioso){
   if(!nuvemOK() || !usuarioLogado() || nuvemSincronizando) return;
+  if(silencioso && Date.now()-nuvemUltimaSync<60000) return;
   nuvemSincronizando=true;
   try{
     let ger, tudo;
@@ -543,6 +548,7 @@ async function nuvemSync(silencioso){
     // MERGE, não substituição: O.S. do modo local (sem dbId) são preservadas
     const soDesteAparelho = st.oss.filter(o=>!o.dbId);
     st.oss = tudo.map(rowParaOs).concat(soDesteAparelho);
+    nuvemUltimaSync=Date.now(); // só sync COMPLETA carimba o relógio do throttle
     salvarSt();
     atualizaCabecalho(); renderLista(); renderContas();
     if(soDesteAparelho.length && !nuvemAvisouLegado){
@@ -1219,6 +1225,10 @@ function passaFiltro(os){
   if(filtroAtual==='nao') return !os.cancelada && os.status==='NAO';
   return true;
 }
+/* v8: com o histórico da Educação importado (2,2 mil O.S.) a lista não
+   pode mais renderizar tudo de uma vez — o celular do fiscal travava
+   segundos por render. Pagina de 150 em 150; busca e filtro resetam. */
+let listaLimite=150;
 function renderLista(){
   const alvo=$('#l-lista');
   const q=norm($('#l-busca').value);
@@ -1229,7 +1239,8 @@ function renderLista(){
     alvo.innerHTML='<div class="vazio"><div class="g">🗂</div>'+(st.oss.length? 'Nada com esse filtro/busca.' : 'Nenhuma O.S. emitida ainda.<br>Toque em <b>Nova O.S.</b> para começar'+(prox? ' — a primeira sai com o número '+escHtml(prox)+'.' : '.'))+'</div>';
     return;
   }
-  alvo.innerHTML=lista.map(os=>{
+  const aRender=lista.slice(0,listaLimite);
+  alvo.innerHTML=aRender.map(os=>{
     const cls = os.cancelada?'cancelada': os.status==='SIM'?'ex-sim': os.status==='NAO'?'ex-nao':'';
     const pill = os.cancelada? '<span class="pill p-canc">CANCELADA</span>'
       : os.status==='SIM'? '<span class="pill p-sim">EXECUTADA</span>'
@@ -1263,7 +1274,12 @@ function renderLista(){
         +(os.status!=='PEND'? '<button type="button" class="bt bt-mini" data-ac="pend" data-id="'+idSafe+'">↺ Reabrir</button>':'')
         +'<button type="button" class="bt bt-mini" data-ac="canc" data-id="'+idSafe+'">🚫 Cancelar</button>')
       +'</div></div></div>';
-  }).join('');
+  }).join('')
+  +(lista.length>listaLimite
+    ? '<button type="button" class="bt" id="bt-mais-os" style="width:100%;margin-top:8px">Mostrar mais ('+(lista.length-listaLimite)+' restantes)</button>'
+    : '');
+  const bm=$('#bt-mais-os');
+  if(bm) bm.onclick=()=>{ listaLimite+=150; renderLista(); };
 }
 function achaOS(id){ return st.oss.find(o=>o.id===id); }
 let detsAbertos=new Set();
@@ -1481,8 +1497,11 @@ function mostrarSec(nome){
   if(st.cfg.ultimaSec!==nome){ st.cfg.ultimaSec=nome; salvarSt(); }
 }
 $$('nav button').forEach(b=> b.onclick=()=>mostrarSec(b.dataset.sec));
-$('#l-busca').addEventListener('input', renderLista);
-$$('#l-filtros .chip').forEach(b=> b.onclick=()=>{ $$('#l-filtros .chip').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); filtroAtual=b.dataset.f; renderLista(); });
+/* v8: debounce na busca — sem ele cada tecla re-renderizava a lista
+   inteira (com o histórico importado isso engasgava a digitação) */
+let buscaTimer=null;
+$('#l-busca').addEventListener('input', ()=>{ clearTimeout(buscaTimer); buscaTimer=setTimeout(()=>{ listaLimite=150; renderLista(); },250); });
+$$('#l-filtros .chip').forEach(b=> b.onclick=()=>{ $$('#l-filtros .chip').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); filtroAtual=b.dataset.f; listaLimite=150; renderLista(); });
 $('#bt-emitir').onclick=emitir;
 $('#bt-sync').onclick=()=>nuvemSync(false);
 
