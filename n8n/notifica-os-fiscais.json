@@ -38,7 +38,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const corpo = $input.first().json;\nconst lista = Array.isArray(corpo) ? corpo : [];\nreturn lista.map(o => ({ json: {\n  ...o,\n  link: 'https://irprgdzaqoqnjuksuloh.supabase.co/storage/v1/object/public/os-oficiais/os-' + o.numero + '.xlsx',\n  nomeArquivo: 'OS ' + o.numero + ' - ' + String(o.assunto||'').toUpperCase().replace(/[\\\\/:*?\"<>|]/g,'-') + ' - ' + o.area + ' - ' + String(o.unidade||'').replace(/[\\\\/:*?\"<>|]/g,'-') + '.xlsx',\n  resumo: 'O.S. ' + o.numero + ' \u2014 ' + o.unidade + '\\n\u00c1rea: ' + o.area + ' \u00b7 N\u00edvel ' + o.nivel + '\\nAssunto: ' + o.assunto + '\\nServi\u00e7o: ' + o.descricao + '\\nAbertura: ' + String(o.data_abertura||'').split('-').reverse().join('/') + ' \u00b7 Fiscal: ' + (o.fiscal||'') + '\\nEmitida por: ' + (o.emitida_por||'')\n} }));"
+        "jsCode": "const JID_GRUPO_RENATO = 'COLE_AQUI_JID_GRUPO_RENATO';\nconst JID_GRUPO_WELLINGTON = 'COLE_AQUI_JID_GRUPO_WELLINGTON';\nconst JID_GRUPO_PADRAO = 'COLE_AQUI_JID_GRUPO_PADRAO';\nfunction grupoDoFiscal(f){ f = String(f||'').toLowerCase(); if(f.includes('renato')) return JID_GRUPO_RENATO; if(f.includes('welling')) return JID_GRUPO_WELLINGTON; return JID_GRUPO_PADRAO; }\nconst corpo = $input.first().json;\nconst lista = Array.isArray(corpo) ? corpo : [];\nreturn lista.map(o => ({ json: {\n  ...o,\n  grupoJid: grupoDoFiscal(o.fiscal),\n  link: 'https://irprgdzaqoqnjuksuloh.supabase.co/storage/v1/object/public/os-oficiais/os-' + o.numero + '.xlsx',\n  nomeArquivo: 'OS ' + o.numero + ' - ' + String(o.assunto||'').toUpperCase().replace(/[\\\\/:*?\"<>|]/g,'-') + ' - ' + o.area + ' - ' + String(o.unidade||'').replace(/[\\\\/:*?\"<>|]/g,'-') + '.xlsx',\n  resumo: 'O.S. ' + o.numero + ' \u2014 ' + o.unidade + '\\n\u00c1rea: ' + o.area + ' \u00b7 N\u00edvel ' + o.nivel + '\\nAssunto: ' + o.assunto + '\\nServi\u00e7o: ' + o.descricao + '\\nAbertura: ' + String(o.data_abertura||'').split('-').reverse().join('/') + ' \u00b7 Fiscal: ' + (o.fiscal||'') + '\\nEmitida por: ' + (o.emitida_por||'')\n} }));"
       },
       "id": "a1000000-0000-0000-0000-000000000003",
       "name": "Prepara itens",
@@ -81,7 +81,7 @@
         "headerParameters": { "parameters": [ { "name": "apikey", "value": "COLE_AQUI_EVOLUTION_APIKEY" } ] },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: 'COLE_AQUI_JID_DO_GRUPO', mediatype: 'document', mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', media: $json.link, fileName: $json.nomeArquivo, caption: $json.resumo }) }}",
+        "jsonBody": "={{ JSON.stringify({ number: $json.grupoJid, mediatype: 'document', mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', media: $json.link, fileName: $json.nomeArquivo, caption: $json.resumo }) }}",
         "options": {}
       },
       "id": "a1000000-0000-0000-0000-000000000006",
