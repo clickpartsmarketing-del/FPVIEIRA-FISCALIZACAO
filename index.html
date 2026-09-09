@@ -386,7 +386,11 @@ nav button.sel .ic{transform:translateY(-1px)}
    Arquivo único, zero dependências. Gera .xlsx no modelo oficial
    (timbre embutido) com numeração automática sequencial.
    ================================================================ */
-const VERSAO = 'v9';
+const VERSAO = 'v10';
+/* dispara o robô do n8n na hora da emissão (e-mail com anexo + WhatsApp
+   do grupo) — o agendamento do n8n vira só rede de segurança */
+const WEBHOOK_NOTIFICA = 'https://webhook.editly.com.br/webhook/bc885b6e-381b-4b23-a7d2-00a9e695e891';
+function avisaRobo(){ try{ fetch(WEBHOOK_NOTIFICA, {mode:'no-cors', cache:'no-store'}); }catch(e){} }
 const LS = 'fpv_fisc_semde_v1';
 /* NUVEM (Supabase) — vazio = modo LOCAL; preenchido = central (ver supabase/DEPLOY.md) */
 const NUVEM = {
@@ -992,6 +996,7 @@ async function compartilharArquivo(u8, nome, texto){
 async function shareWhats(os){
   const u8=xlsxOS(os);
   const subiu=await subirPlanilha(os, u8);            // garante o LINK antes de compartilhar
+  if(subiu) avisaRobo();                              // se essa O.S. ainda não foi notificada, o robô cobre
   const ok=await compartilharArquivo(u8, nomeArquivo(os), resumoOS(os));
   if(!ok){
     if(nuvemOK() && !subiu) toast('⚠ Link da planilha ainda indisponível — peça ao administrador para liberar o armazenamento');
@@ -1204,7 +1209,8 @@ async function emitir(){
     try{
       const u8doc=xlsxOS(os);
       baixar(u8doc, nomeArquivo(os));
-      subirPlanilha(os, u8doc);   // sobe p/ Storage: o link já nasce junto com a O.S.
+      // sobe p/ Storage e, com o arquivo no ar, acorda o robô (n8n) na hora
+      subirPlanilha(os, u8doc).then(ok=>{ if(ok) avisaRobo(); });
     }
     catch(e){ toast('O.S. '+os.numero+' emitida — gere o Excel pelo botão do card'); }
     detsAbertos.add(os.id);
