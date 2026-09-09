@@ -1,0 +1,124 @@
+{
+  "name": "FISCALIZACAO - notifica O.S. (email anexo + WhatsApp grupo)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "minutes", "minutesInterval": 2 } ] }
+      },
+      "id": "a1000000-0000-0000-0000-000000000001",
+      "name": "A cada 2 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://irprgdzaqoqnjuksuloh.supabase.co/rest/v1/os_fiscalizacao",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [
+          { "name": "select", "value": "id,numero,unidade,area,nivel,assunto,descricao,fiscal,emitida_por,data_abertura" },
+          { "name": "notificado_em", "value": "is.null" },
+          { "name": "numero", "value": "gte.2401" },
+          { "name": "cancelada", "value": "eq.false" },
+          { "name": "order", "value": "numero.asc" },
+          { "name": "limit", "value": "10" }
+        ] },
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "apikey", "value": "COLE_AQUI_A_SERVICE_KEY" },
+          { "name": "Authorization", "value": "Bearer COLE_AQUI_A_SERVICE_KEY" }
+        ] },
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "Busca O.S. nao notificadas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const corpo = $input.first().json;\nconst lista = Array.isArray(corpo) ? corpo : [];\nreturn lista.map(o => ({ json: {\n  ...o,\n  link: 'https://irprgdzaqoqnjuksuloh.supabase.co/storage/v1/object/public/os-oficiais/os-' + o.numero + '.xlsx',\n  nomeArquivo: 'OS ' + o.numero + ' - ' + String(o.assunto||'').toUpperCase().replace(/[\\\\/:*?\"<>|]/g,'-') + ' - ' + o.area + ' - ' + String(o.unidade||'').replace(/[\\\\/:*?\"<>|]/g,'-') + '.xlsx',\n  resumo: 'O.S. ' + o.numero + ' \u2014 ' + o.unidade + '\\n\u00c1rea: ' + o.area + ' \u00b7 N\u00edvel ' + o.nivel + '\\nAssunto: ' + o.assunto + '\\nServi\u00e7o: ' + o.descricao + '\\nAbertura: ' + String(o.data_abertura||'').split('-').reverse().join('/') + ' \u00b7 Fiscal: ' + (o.fiscal||'') + '\\nEmitida por: ' + (o.emitida_por||'')\n} }));"
+      },
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "Prepara itens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "options": { "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } } }
+      },
+      "id": "a1000000-0000-0000-0000-000000000004",
+      "name": "Baixa a planilha (Storage)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "sendTo": "fp.edu.riodasostras@gmail.com",
+        "subject": "=OS {{ $json.numero }}",
+        "emailType": "text",
+        "message": "={{ $json.resumo }}\n\nPlanilha oficial em anexo (emitida pelo app da Fiscaliza\u00e7\u00e3o SEMDE).",
+        "options": {
+          "attachmentsUi": { "attachmentsBinary": [ { "property": "data" } ] }
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000005",
+      "name": "E-mail oficial COM ANEXO",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "COLE_AQUI_EVOLUTION_URL/message/sendMedia/COLE_AQUI_INSTANCIA",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "apikey", "value": "COLE_AQUI_EVOLUTION_APIKEY" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: 'COLE_AQUI_JID_DO_GRUPO', mediatype: 'document', mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', media: $json.link, fileName: $json.nomeArquivo, caption: $json.resumo }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000006",
+      "name": "WhatsApp do grupo (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 100]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://irprgdzaqoqnjuksuloh.supabase.co/rest/v1/os_fiscalizacao?id=eq.{{ $('Prepara itens').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "apikey", "value": "COLE_AQUI_A_SERVICE_KEY" },
+          { "name": "Authorization", "value": "Bearer COLE_AQUI_A_SERVICE_KEY" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ notificado_em: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000007",
+      "name": "Marca como notificada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0]
+    }
+  ],
+  "connections": {
+    "A cada 2 min": { "main": [ [ { "node": "Busca O.S. nao notificadas", "type": "main", "index": 0 } ] ] },
+    "Busca O.S. nao notificadas": { "main": [ [ { "node": "Prepara itens", "type": "main", "index": 0 } ] ] },
+    "Prepara itens": { "main": [ [ { "node": "Baixa a planilha (Storage)", "type": "main", "index": 0 } ] ] },
+    "Baixa a planilha (Storage)": { "main": [ [ { "node": "E-mail oficial COM ANEXO", "type": "main", "index": 0 } ] ] },
+    "E-mail oficial COM ANEXO": { "main": [ [ { "node": "WhatsApp do grupo (Evolution)", "type": "main", "index": 0 } ] ] },
+    "WhatsApp do grupo (Evolution)": { "main": [ [ { "node": "Marca como notificada", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
