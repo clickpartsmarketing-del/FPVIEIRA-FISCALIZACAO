@@ -386,7 +386,7 @@ nav button.sel .ic{transform:translateY(-1px)}
    Arquivo único, zero dependências. Gera .xlsx no modelo oficial
    (timbre embutido) com numeração automática sequencial.
    ================================================================ */
-const VERSAO = 'v8';
+const VERSAO = 'v9';
 const LS = 'fpv_fisc_semde_v1';
 /* NUVEM (Supabase) — vazio = modo LOCAL; preenchido = central (ver supabase/DEPLOY.md) */
 const NUVEM = {
@@ -663,7 +663,25 @@ function resumoOS(os){
     +'Serviço: '+os.descricao+'\n'
     +(os.prazo? 'Prazo: '+prazoTxt(os)+'\n' : '')
     +'Abertura: '+br(os.dataAbertura)+(os.fiscal? ' · Fiscal: '+os.fiscal : '')
-    +(os.origem? '\nPedido de origem: '+os.origem : '');
+    +(os.origem? '\nPedido de origem: '+os.origem : '')
+    +(nuvemOK()? '\n\n📎 Planilha oficial: '+urlPlanilha(os) : '');
+}
+/* link público da planilha no Storage — funciona em QUALQUER celular,
+   inclusive no navegador interno do WhatsApp (onde anexar é impossível) */
+function urlPlanilha(os){ return NUVEM.url+'/storage/v1/object/public/os-oficiais/os-'+os.numero+'.xlsx'; }
+async function subirPlanilha(os, u8){
+  if(!nuvemOK()) return false;
+  const t=nuvemTokens();
+  try{
+    const r=await fetch(NUVEM.url+'/storage/v1/object/os-oficiais/os-'+os.numero+'.xlsx', {
+      method:'POST',
+      headers:{ 'apikey':NUVEM.anon, 'Authorization':'Bearer '+(t?t.access_token:NUVEM.anon),
+                'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'x-upsert':'true' },
+      body:u8
+    });
+    return r.ok;
+  }catch(e){ return false; }
 }
 
 /* ================================================================
@@ -973,18 +991,19 @@ async function compartilharArquivo(u8, nome, texto){
 }
 async function shareWhats(os){
   const u8=xlsxOS(os);
+  const subiu=await subirPlanilha(os, u8);            // garante o LINK antes de compartilhar
   const ok=await compartilharArquivo(u8, nomeArquivo(os), resumoOS(os));
   if(!ok){
-    baixar(u8, nomeArquivo(os));
-    window.open('https://wa.me/?text='+encodeURIComponent(resumoOS(os)+'\n\n(planilha da O.S. baixada — anexe o arquivo aqui)'),'_blank');
+    if(nuvemOK() && !subiu) toast('⚠ Link da planilha ainda indisponível — peça ao administrador para liberar o armazenamento');
+    window.open('https://wa.me/?text='+encodeURIComponent(resumoOS(os)),'_blank');
   }
 }
-function shareEmail(os){
+async function shareEmail(os){
   const u8=xlsxOS(os);
-  baixar(u8, nomeArquivo(os));
+  const subiu=await subirPlanilha(os, u8);
+  if(nuvemOK() && !subiu) toast('⚠ Link da planilha ainda indisponível — peça ao administrador para liberar o armazenamento');
   const assunto='OS '+os.numero;
-  const corpo=resumoOS(os)+'\n\nA planilha oficial da O.S. foi baixada neste aparelho — anexe o arquivo "'+nomeArquivo(os)+'" a este e-mail.';
-  location.href='mailto:'+encodeURIComponent(st.cfg.email||'')+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+  location.href='mailto:'+encodeURIComponent(st.cfg.email||'')+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(resumoOS(os));
 }
 
 /* ================================================================
@@ -1182,7 +1201,11 @@ async function emitir(){
     st.oss.push(os); nuvemGeracao++; salvarSt();
     atualizaCabecalho(); limpaForm(); renderLista(); renderContas();
     toast('O.S. '+os.numero+' emitida ✔');
-    try{ baixar(xlsxOS(os), nomeArquivo(os)); }
+    try{
+      const u8doc=xlsxOS(os);
+      baixar(u8doc, nomeArquivo(os));
+      subirPlanilha(os, u8doc);   // sobe p/ Storage: o link já nasce junto com a O.S.
+    }
     catch(e){ toast('O.S. '+os.numero+' emitida — gere o Excel pelo botão do card'); }
     detsAbertos.add(os.id);
     mostrarSec('lista');
@@ -1297,7 +1320,7 @@ document.addEventListener('click', async ev=>{
   const ac=b.dataset.ac;
   if(ac==='xlsx'){ baixar(xlsxOS(os), nomeArquivo(os)); toast('Excel da O.S. '+os.numero+' gerado'); }
   else if(ac==='whats'){ await shareWhats(os); }
-  else if(ac==='email'){ shareEmail(os); }
+  else if(ac==='email'){ await shareEmail(os); }
   else if(ac==='sim'){ await aplicaMudanca(os, {status:'SIM', concluidaEm:hojeISO()}, {status:'SIM', concluida_em:hojeISO()}, 'O.S. '+os.numero+' marcada como executada'); }
   else if(ac==='nao'){ await aplicaMudanca(os, {status:'NAO', concluidaEm:''}, {status:'NAO', concluida_em:null}, 'O.S. '+os.numero+' marcada como NÃO executada'); }
   else if(ac==='pend'){ await aplicaMudanca(os, {status:'PEND', concluidaEm:''}, {status:'PEND', concluida_em:null}, null); }
