@@ -21,7 +21,7 @@
           { "name": "numero", "value": "gte.2401" },
           { "name": "cancelada", "value": "eq.false" },
           { "name": "order", "value": "numero.asc" },
-          { "name": "limit", "value": "10" }
+          { "name": "limit", "value": "1" }
         ] },
         "sendHeaders": true,
         "headerParameters": { "parameters": [
