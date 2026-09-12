@@ -85,6 +85,7 @@
         "options": {}
       },
       "id": "a1000000-0000-0000-0000-000000000006",
+      "onError": "continueRegularOutput",
       "name": "WhatsApp do grupo (Evolution)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
